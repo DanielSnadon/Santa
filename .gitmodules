@@ -1,0 +1,3 @@
+[submodule "third_party/yasl"]
+	path = third_party/yasl
+	url = https://github.com/lemito/yasl.git
