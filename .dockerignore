@@ -1,0 +1,8 @@
+.git
+**/.git
+build*
+**/bin
+**/obj
+.env
+web
+artifacts
