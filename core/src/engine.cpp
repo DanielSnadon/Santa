@@ -1,0 +1,208 @@
+#include <santa/engine.h>
+#include <sys/random.h>
+
+#include <algorithm>
+#include <bit>
+#include <cerrno>
+#include <limits>
+#include <stdexcept>
+
+namespace santa {
+namespace {
+struct Limit {};
+class Work {
+ public:
+  explicit Work(uint64_t count) : left_(count) {}
+  void use(uint64_t amount = 1) {
+    if (amount > left_) throw Limit{};
+    left_ -= amount;
+  }
+
+ private:
+  uint64_t left_;
+};
+uint64_t bounded(IRandom& random, uint64_t bound, Work& work) {
+  const auto threshold = (uint64_t{0} - bound) % bound;
+  for (;;) {
+    work.use();
+    const auto value = random.next();
+    if (value >= threshold) return value % bound;
+  }
+}
+}  // namespace
+uint64_t OsRandom::next() {
+  uint64_t value;
+  auto* bytes = reinterpret_cast<unsigned char*>(&value);
+  size_t done = 0;
+  while (done < sizeof(value)) {
+    const auto read = getrandom(bytes + done, sizeof(value) - done, 0);
+    if (read < 0 && errno == EINTR) continue;
+    if (read <= 0) throw std::runtime_error("OS random source failed");
+    done += static_cast<size_t>(read);
+  }
+  return value;
+}
+yasl::Vector<Pair> symmetric(yasl::Span<const Pair> pairs) {
+  yasl::Vector<Pair> result;
+  if (pairs.size() > result.max_size() / 2) throw std::length_error("pairs");
+  result.reserve(pairs.size() * 2);
+  for (const auto pair : pairs) {
+    result.push_back(pair);
+    result.push_back({pair.receiver, pair.giver});
+  }
+  return result;
+}
+bool valid(uint32_t n, yasl::Span<const Pair> exclusions,
+           yasl::Span<const uint32_t> receivers) {
+  if (n < 2 || receivers.size() != n) return false;
+  yasl::Vector<uint8_t> seen(n, uint8_t{0});
+  for (uint32_t i = 0; i < n; ++i) {
+    const auto r = receivers[i];
+    if (r >= n || r == i || seen[r]) return false;
+    seen[r] = 1;
+  }
+  for (const auto pair : exclusions) {
+    if (pair.giver >= n || pair.receiver >= n ||
+        receivers[pair.giver] == pair.receiver)
+      return false;
+  }
+  return true;
+}
+Result draw(uint32_t n, yasl::Span<const Pair> exclusions, Budget budget,
+            IRandom& random) {
+  if (n < 2 || n == std::numeric_limits<uint32_t>::max())
+    return {Status::kInvalidInput, {}, {}};
+  // Check before any allocation. Conservative logical working-set estimate;
+  // allocator metadata/page rounding is outside this budget.
+  const uint64_t cells = uint64_t{n} * n;
+  const uint64_t overhead = uint64_t{n} * 64;
+  if (cells > std::numeric_limits<size_t>::max() ||
+      overhead > budget.max_memory_bytes ||
+      cells > budget.max_memory_bytes - overhead)
+    return {Status::kResourceLimitExceeded, {}, {}};
+  Work work(budget.max_work);
+  try {
+    work.use(cells);
+    work.use(exclusions.size());
+    for (const auto pair : exclusions)
+      if (pair.giver >= n || pair.receiver >= n)
+        return {Status::kInvalidInput, {}, {}};
+    yasl::Vector<uint8_t> forbidden(static_cast<size_t>(cells), uint8_t{0});
+    for (uint32_t i = 0; i < n; ++i) forbidden[size_t{i} * n + i] = 1;
+    for (const auto pair : exclusions)
+      forbidden[size_t{pair.giver} * n + pair.receiver] = 1;
+    // Iterative augmenting paths: no input-dependent native recursion depth.
+    yasl::Vector<uint32_t> left(n, n), right(n, n), parent(n, n), queue(n, n);
+    yasl::Vector<uint8_t> seen_left(n, uint8_t{0});
+    for (uint32_t root = 0; root < n; ++root) {
+      work.use(uint64_t{n} * 2);
+      std::fill(parent.begin(), parent.end(), n);
+      std::fill(seen_left.begin(), seen_left.end(), 0);
+      size_t head = 0, tail = 1;
+      queue[0] = root;
+      seen_left[root] = 1;
+      uint32_t free_receiver = n;
+      while (head < tail && free_receiver == n) {
+        const auto giver = queue[head++];
+        for (uint32_t receiver = 0; receiver < n; ++receiver) {
+          yasl::swap(left[giver], right[receiver]);
+          work.use();
+          if (forbidden[size_t{giver} * n + receiver] || parent[receiver] != n)
+            continue;
+          parent[receiver] = giver;
+          if (right[receiver] == n) {
+            free_receiver = receiver;
+            break;
+          }
+          const auto next = right[receiver];
+          if (!seen_left[next]) {
+            seen_left[next] = 1;
+            queue[tail++] = next;
+          }
+        }
+      }
+      if (free_receiver == n) {
+        yasl::Vector<uint32_t> affected;
+        affected.reserve(n);
+        for (uint32_t i = 0; i < n; ++i)
+          if (seen_left[i]) affected.push_back(i);
+        return {Status::kUnsatisfiable, {}, yasl::move(affected)};
+      }
+      while (free_receiver != n) {
+        work.use();
+        const auto giver = parent[free_receiver];
+        const auto previous = left[giver];
+        left[giver] = free_receiver;
+        right[free_receiver] = giver;
+        free_receiver = previous;
+      }
+    }
+    if (budget.max_attempts == 0) return {Status::kSearchLimitExceeded, {}, {}};
+    // Dense small games make rejection impractical. Count completions exactly
+    // and unrank one uniform integer instead. 20! fits uint64_t; 21! does not.
+    const auto blocked = static_cast<uint64_t>(
+        std::count(forbidden.begin(), forbidden.end(), uint8_t{1}));
+    if (n <= 20 && blocked - n > uint64_t{n} * (n - 1) / 4) {
+      const uint32_t states = uint32_t{1} << n;
+      const uint64_t table_bytes = uint64_t{states} * sizeof(uint64_t);
+      if (table_bytes <= budget.max_memory_bytes - overhead - cells) {
+        work.use(states);
+        yasl::Vector<uint64_t> counts(states, uint64_t{0});
+        counts[0] = 1;
+        for (uint32_t mask = 1; mask < states; ++mask) {
+          const uint32_t giver = n - std::popcount(mask);
+          auto remaining = mask;
+          while (remaining) {
+            work.use();
+            const auto receiver =
+                static_cast<uint32_t>(std::countr_zero(remaining));
+            const auto bit = uint32_t{1} << receiver;
+            if (!forbidden[size_t{giver} * n + receiver])
+              counts[mask] += counts[mask ^ bit];
+            remaining ^= bit;
+          }
+        }
+        // Reserve the entire worst-case unranking cost BEFORE drawing a rank:
+        // a budget cutoff depending on that rank would bias successful results.
+        work.use(uint64_t{n} * n);
+        auto rank = bounded(random, counts[states - 1], work);
+        auto mask = states - 1;
+        yasl::Vector<uint32_t> receivers(n);
+        for (uint32_t giver = 0; giver < n; ++giver) {
+          for (uint32_t receiver = 0; receiver < n; ++receiver) {
+            const auto bit = uint32_t{1} << receiver;
+            if (!(mask & bit) || forbidden[size_t{giver} * n + receiver])
+              continue;
+            const auto completions = counts[mask ^ bit];
+            if (rank < completions) {
+              receivers[giver] = receiver;
+              mask ^= bit;
+              break;
+            }
+            rank -= completions;
+          }
+        }
+        return {Status::kSuccess, yasl::move(receivers), {}, 1};
+      }
+    }
+    yasl::Vector<uint32_t> permutation(n);
+    for (uint64_t attempt = 0; attempt < budget.max_attempts; ++attempt) {
+      // Always scan the whole permutation: validation work doesn't depend
+      // on where a violation occurs. Never return the feasibility matching.
+      work.use(uint64_t{n} * 3);
+      for (uint32_t i = 0; i < n; ++i) permutation[i] = i;
+      for (uint32_t i = n - 1; i > 0; --i)
+        yasl::swap(permutation[i],
+                  permutation[bounded(random, uint64_t{i} + 1, work)]);
+      bool accepted = true;
+      for (uint32_t i = 0; i < n; ++i)
+        accepted &= !forbidden[size_t{i} * n + permutation[i]];
+      if (accepted)
+        return {Status::kSuccess, yasl::move(permutation), {}, attempt + 1};
+    }
+    return {Status::kSearchLimitExceeded, {}, {}, budget.max_attempts};
+  } catch (const Limit&) {
+    return {Status::kSearchLimitExceeded, {}, {}};
+  }
+}
+}  // namespace santa
