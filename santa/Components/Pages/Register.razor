@@ -1,0 +1,17 @@
+@page "/register"
+<PageTitle>Регистрация — Тайный Санта</PageTitle>
+<div class="auth-layout"><aside class="auth-aside" aria-hidden="true"><span class="auth-flower">✳</span><p>Чтобы у каждого был свой Санта.</p><img src="images/holiday-parcel.svg" alt="" width="320" height="240" /></aside>
+<section class="auth-panel panel"><h1>Регистрация</h1>
+<ErrorMessage />
+<form class="auth-form" method="post" action="/account/register" data-enhance="false">
+    <AntiforgeryToken />
+    <FormField For="name" Label="Ваше имя"><input id="name" name="name" autocomplete="name" required maxlength="100" /></FormField>
+    <FormField For="email" Label="Email"><input id="email" name="email" type="email" autocomplete="username" required maxlength="256" /></FormField>
+    <FormField For="password" Label="Пароль"><input id="password" name="password" type="password" autocomplete="new-password" required minlength="12" maxlength="256" aria-describedby="password-help" /></FormField>
+    <p id="password-help">Не менее 12 символов, включая цифру, заглавную букву и знак.</p>
+    <ActionButton type="submit">Создать аккаунт</ActionButton>
+</form>
+<p class="hint">Чтобы вас добавили в игру, сообщите организатору этот email.</p>
+
+<p class="auth-switch">Уже есть аккаунт? <a href="/login">Войти</a></p>
+</section></div>

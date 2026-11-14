@@ -1,0 +1,15 @@
+@page "/login"
+<PageTitle>Вход — Тайный Санта</PageTitle>
+<div class="auth-layout"><aside class="auth-aside" aria-hidden="true"><span class="auth-flower">✳</span><p>Ваши игры и один маленький секрет.</p><img src="images/holiday-parcel.svg" alt="" width="320" height="240" /></aside>
+<section class="auth-panel panel"><h1>Вход</h1>
+<ErrorMessage />
+<form class="auth-form" method="post" action="/account/login" data-enhance="false">
+    <AntiforgeryToken />
+    <FormField For="email" Label="Email"><input id="email" name="email" type="email" autocomplete="username" required maxlength="256" /></FormField>
+    <FormField For="password" Label="Пароль"><input id="password" name="password" type="password" autocomplete="current-password" required maxlength="256" /></FormField>
+    <ActionButton type="submit">Войти</ActionButton>
+</form>
+<p><a href="/register">Создать аккаунт</a></p>
+
+
+</section></div>

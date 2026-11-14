@@ -1,0 +1,77 @@
+@page "/games/{Id:guid}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@inject IHttpContextAccessor Context
+@inject santa.Application.GameService Games
+@using santa.Application
+@using santa.Infrastructure
+<PageTitle>@(game?.Title ?? "Игра") — Тайный Санта</PageTitle>
+@if (failure != null) { <h1>Игра недоступна</h1><p role="alert">@failure</p> }
+else if (game != null)
+{
+    <header class="page-heading"><StatusBadge State="@game.State" /><h1>@game.Title</h1></header>
+    <ErrorMessage />
+    @if (game.IsOwner)
+    {
+        @if (game.State == "Draft")
+        {
+            <div class="game-workspace"><section class="panel configuration-panel"><h2>Участники и исключения</h2>
+            <form method="post" action="@($"/actions/{Id}/configure")" data-enhance="false">
+                <AntiforgeryToken /><input type="hidden" name="version" value="@game.Version" />
+                <label for="emails">Email участников</label>
+                <textarea id="emails" name="emails" rows="7" aria-describedby="emails-help">@emails</textarea>
+                <p id="emails-help">По одному email в строке. Участникам нужно сначала зарегистрироваться. Если играете сами, добавьте и свой email.</p>
+                <label for="exclusions">Кто не должен дарить друг другу</label>
+                <textarea id="exclusions" name="exclusions" rows="4" aria-describedby="exclusions-help">@exclusions</textarea>
+                <p id="exclusions-help">Два email через запятую, по паре в строке. Можно оставить пустым.</p>
+                <ActionButton type="submit">Сохранить</ActionButton>
+            </form>
+            </section><section class="panel draw-panel"><h2>Жеребьёвка</h2>
+            <p>Сохранено участников: @configuration!.Participants.Length. После жеребьёвки состав и исключения изменить нельзя.</p>
+            <form method="post" action="@($"/actions/{Id}/publish")" data-enhance="false">
+                <AntiforgeryToken /><input type="hidden" name="version" value="@game.Version" />
+                <input type="hidden" name="requestKey" value="@requestKey" />
+                <ActionButton type="submit" disabled="@(configuration.Participants.Length < 2)">Провести жеребьёвку</ActionButton>
+            </form>
+            </section></div>
+        }
+        else if (game.State == "Published")
+        {
+            <p>Результаты доступны. Каждый участник видит только своего получателя.</p>
+            <form class="close-form" method="post" action="@($"/actions/{Id}/close")" data-enhance="false">
+                <AntiforgeryToken /><p>После завершения участники больше не смогут посмотреть своего получателя.</p><ActionButton Class="secondary" type="submit">Завершить игру</ActionButton>
+            </form>
+        }
+    }
+    @if (recipient != null)
+    {
+        <section class="recipient panel"><div><h2>Вы дарите подарок</h2><p class="recipient-name">@recipient.Name</p><p class="recipient-email">@recipient.Email</p></div><WinterIllustration Variant="secret" /></section>
+    }
+    else if (game.State == "Draft") { <p>Ваш результат появится после жеребьёвки.</p> }
+    else if (!game.IsOwner && game.State == "Closed") { <p>Игра завершена, доступ к результату закрыт.</p> }
+}
+<p class="back-link"><a href="/">К моим играм</a></p>
+@code {
+    [Parameter] public Guid Id { get; set; }
+    private GameView? game;
+    private ConfigurationView? configuration;
+    private RecipientView? recipient;
+    private string? failure;
+    private string emails = "", exclusions = "";
+    private readonly Guid requestKey = Guid.NewGuid();
+    protected override async Task OnParametersSetAsync()
+    {
+        try {
+            var actor = WebEndpoints.Actor(Context.HttpContext!.User);
+            game = await Games.Get(actor,Id);
+            if (game.IsOwner && game.State == "Draft") {
+                configuration = await Games.Configuration(actor,Id);
+                emails = string.Join("\n",configuration.Participants.Select(p => p.Email));
+                exclusions = string.Join("\n",configuration.Exclusions.Select(p => $"{p.First}, {p.Second}"));
+            }
+            if (game.State == "Published") {
+                try { recipient = await Games.MyAssignment(actor,Id); }
+                catch (GameException e) when (e.Status == 404) { }
+            }
+        } catch (GameException) { failure = "Эта игра не найдена или у вас нет доступа."; }
+    }
+}

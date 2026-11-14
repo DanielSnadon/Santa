@@ -1,0 +1,19 @@
+@inject NavigationManager Navigation
+@if (error != null) { <p class="error" role="alert">@Message(error)</p> }
+@code {
+    [SupplyParameterFromQuery(Name = "error")] public string? error { get; set; }
+    public static string Message(string code) => code switch {
+        "unsatisfiable" => "С этими исключениями распределение невозможно. Проверьте пары участников.",
+        "search_limit" => "Лимит поиска исчерпан. Игра осталась в подготовке: попробуйте снова или смягчите исключения.",
+        "resource_limit" => "Недостаточно ресурсов для этой конфигурации. Игра осталась в подготовке.",
+        "configuration_conflict" => "Состав или состояние игры изменились. Откройте игру заново.",
+        "already_published" => "Жеребьёвка уже проведена.",
+        "unknown_account" => "Участник с одним из email ещё не зарегистрирован.",
+        "duplicate_participants" => "В списке есть повторяющиеся email.",
+        "invalid_exclusion" => "Исключение должно содержать два разных email из списка участников через запятую.",
+        "registration_failed" => "Не удалось создать аккаунт. Проверьте email и пароль (не менее 12 символов, с цифрой, заглавной буквой и знаком). Email может быть уже занят.",
+        "login_failed" => "Не удалось войти. Проверьте email и пароль. После нескольких ошибок подождите 15 минут.",
+        "forbidden" => "Недостаточно прав для действия.",
+        _ => "Не удалось выполнить действие. Проверьте данные и обновите страницу."
+    };
+}
