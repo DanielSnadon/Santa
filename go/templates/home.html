@@ -1,0 +1,1 @@
+{{define "home"}}<section class="panel"><h2>Игры</h2><form method="post" action="/actions/create"><input type="hidden" name="csrfToken" value="{{.CSRF}}"><label for="title">Название игры</label><input id="title" name="title"><button type="submit">Создать</button></form></section>{{end}}
