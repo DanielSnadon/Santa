@@ -1,11 +1,11 @@
 #include <santa/engine.h>
 #include <sys/random.h>
 
-#include <algorithm>
-#include <bit>
 #include <cerrno>
-#include <limits>
-#include <stdexcept>
+
+#include <yasl/core/bits.h>
+#include <yasl/core/exception.h>
+#include <yasl/core/utility.h>
 
 namespace santa {
 namespace {
@@ -37,14 +37,15 @@ uint64_t OsRandom::next() {
   while (done < sizeof(value)) {
     const auto read = getrandom(bytes + done, sizeof(value) - done, 0);
     if (read < 0 && errno == EINTR) continue;
-    if (read <= 0) throw std::runtime_error("OS random source failed");
+    if (read <= 0) throw yasl::Exception("OS random source failed");
     done += static_cast<size_t>(read);
   }
   return value;
 }
 yasl::Vector<Pair> symmetric(yasl::Span<const Pair> pairs) {
   yasl::Vector<Pair> result;
-  if (pairs.size() > result.max_size() / 2) throw std::length_error("pairs");
+  if (pairs.size() > result.max_size() / 2)
+    throw yasl::LengthError("pairs");
   result.reserve(pairs.size() * 2);
   for (const auto pair : pairs) {
     result.push_back(pair);
@@ -70,13 +71,13 @@ bool valid(uint32_t n, yasl::Span<const Pair> exclusions,
 }
 Result draw(uint32_t n, yasl::Span<const Pair> exclusions, Budget budget,
             IRandom& random) {
-  if (n < 2 || n == std::numeric_limits<uint32_t>::max())
+  if (n < 2 || n == yasl::max_value<uint32_t>())
     return {Status::kInvalidInput, {}, {}};
   // Check before any allocation. Conservative logical working-set estimate;
   // allocator metadata/page rounding is outside this budget.
   const uint64_t cells = uint64_t{n} * n;
   const uint64_t overhead = uint64_t{n} * 64;
-  if (cells > std::numeric_limits<size_t>::max() ||
+  if (cells > yasl::max_value<size_t>() ||
       overhead > budget.max_memory_bytes ||
       cells > budget.max_memory_bytes - overhead)
     return {Status::kResourceLimitExceeded, {}, {}};
@@ -96,8 +97,10 @@ Result draw(uint32_t n, yasl::Span<const Pair> exclusions, Budget budget,
     yasl::Vector<uint8_t> seen_left(n, uint8_t{0});
     for (uint32_t root = 0; root < n; ++root) {
       work.use(uint64_t{n} * 2);
-      std::fill(parent.begin(), parent.end(), n);
-      std::fill(seen_left.begin(), seen_left.end(), 0);
+      for (uint32_t i = 0; i < n; ++i) {
+        parent[i] = n;
+        seen_left[i] = 0;
+      }
       size_t head = 0, tail = 1;
       queue[0] = root;
       seen_left[root] = 1;
@@ -105,7 +108,6 @@ Result draw(uint32_t n, yasl::Span<const Pair> exclusions, Budget budget,
       while (head < tail && free_receiver == n) {
         const auto giver = queue[head++];
         for (uint32_t receiver = 0; receiver < n; ++receiver) {
-          yasl::swap(left[giver], right[receiver]);
           work.use();
           if (forbidden[size_t{giver} * n + receiver] || parent[receiver] != n)
             continue;
@@ -140,8 +142,9 @@ Result draw(uint32_t n, yasl::Span<const Pair> exclusions, Budget budget,
     if (budget.max_attempts == 0) return {Status::kSearchLimitExceeded, {}, {}};
     // Dense small games make rejection impractical. Count completions exactly
     // and unrank one uniform integer instead. 20! fits uint64_t; 21! does not.
-    const auto blocked = static_cast<uint64_t>(
-        std::count(forbidden.begin(), forbidden.end(), uint8_t{1}));
+    uint64_t blocked = 0;
+    for (size_t i = 0; i < forbidden.size(); ++i)
+      blocked += forbidden[i] == uint8_t{1};
     if (n <= 20 && blocked - n > uint64_t{n} * (n - 1) / 4) {
       const uint32_t states = uint32_t{1} << n;
       const uint64_t table_bytes = uint64_t{states} * sizeof(uint64_t);
@@ -150,12 +153,12 @@ Result draw(uint32_t n, yasl::Span<const Pair> exclusions, Budget budget,
         yasl::Vector<uint64_t> counts(states, uint64_t{0});
         counts[0] = 1;
         for (uint32_t mask = 1; mask < states; ++mask) {
-          const uint32_t giver = n - std::popcount(mask);
+          const uint32_t giver = n - yasl::popcount(mask);
           auto remaining = mask;
           while (remaining) {
             work.use();
             const auto receiver =
-                static_cast<uint32_t>(std::countr_zero(remaining));
+                static_cast<uint32_t>(yasl::countr_zero(remaining));
             const auto bit = uint32_t{1} << receiver;
             if (!forbidden[size_t{giver} * n + receiver])
               counts[mask] += counts[mask ^ bit];
