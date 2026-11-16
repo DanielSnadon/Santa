@@ -30,10 +30,12 @@ a:hover { text-decoration-thickness: 2px; }
 .brand:hover { text-decoration: none; }
 .brand-mark { font: 42px/1 Georgia, serif; color: var(--berry); transform: rotate(-12deg); }
 .nav-link { padding: 10px 0 10px 15px; color: var(--ink); font-size: 15px; }
+.header-actions { display: flex; align-items: center; gap: 20px; }
+.games-nav-link { color: var(--ink); font-size: 14px; white-space: nowrap; }
 .logout-form { display: block; margin: 0; }
-.logout-button { appearance: none; display: inline; min-height: 0; align-self: auto; padding: 10px 0 10px 15px; border: 0; background: transparent; color: var(--ink); box-shadow: none; font-size: 15px; font-weight: 400; }
-.logout-button:hover { background: transparent; color: var(--berry); box-shadow: none; transform: none; text-decoration: underline; text-underline-offset: 5px; }
-.logout-button:active { box-shadow: none; transform: none; }
+.logout-button { appearance: none; display: inline-flex; align-items: center; justify-content: center; min-height: 42px; align-self: auto; padding: 8px 16px; border: 2px solid var(--ink); background: var(--sheet); color: var(--ink); box-shadow: 3px 3px 0 var(--ink); font-size: 14px; font-weight: 600; }
+.logout-button:hover { background: var(--gold); color: var(--ink); transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); text-decoration: none; }
+.logout-button:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
 main { max-width: 1240px; margin: auto; padding: 55px 48px 85px; }
 h1, h2, h3 { font-family: Georgia, 'Times New Roman', serif; font-weight: 700; line-height: 1.12; overflow-wrap: anywhere; }
 h1 { font-size: clamp(38px, 5vw, 64px); letter-spacing: -.045em; margin: 0 0 22px; }
@@ -43,7 +45,7 @@ p { margin: 0 0 20px; max-width: 65ch; }
 .hint { color: var(--muted); font-size: 14px; }
 .page-heading { margin-bottom: 36px; max-width: 100%; }
 .page-heading p { margin-bottom: 0; }
-.page-heading .status { margin-bottom: 20px; }
+.page-heading .status { margin-bottom: 20px; padding: 5px 13px; font-size: 14px; font-weight: 600; }
 .panel { position: relative; min-width: 0; background: var(--sheet); border: 2px solid var(--ink); padding: 32px; box-shadow: 6px 6px 0 var(--ink); }
 form { display: flex; flex-direction: column; align-items: stretch; margin: 0; min-width: 0; }
 label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 9px; }
@@ -132,15 +134,23 @@ h1:focus { outline: none; }
 .draw-panel p { color: var(--ink); font-size: 14px; }
 .draw-panel .button { width: 100%; background: var(--berry); }
 .draw-panel .button:disabled { background: #ded8c7; }
-.close-form { max-width: 660px; padding: 20px 0; border-bottom: 1px dashed var(--rule); }
-.role-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 34px; align-items: start; margin: 38px 0; }
+.close-form { display: block; max-width: none; margin: -15px 0 24px; padding: 0; border: 0; }
+.finish-button { appearance: none; display: inline; min-height: 0; align-self: auto; padding: 8px 0; border: 0; background: transparent; color: var(--berry); box-shadow: none; font-size: 14px; font-weight: 500; }
+.finish-button:hover { background: transparent; color: var(--berry); box-shadow: none; transform: none; text-decoration: underline; text-underline-offset: 5px; }
+.finish-button:active { box-shadow: none; transform: none; }
+.role-tabs { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 980px; margin: 38px 0; }
+.role-tab-toggle { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.role-tab { margin: 0; padding: 14px 18px; border: 2px solid var(--rule); border-bottom-color: var(--ink); background: #e8dfca; color: var(--muted); font: 700 20px/1.2 Georgia, 'Times New Roman', serif; text-align: center; cursor: pointer; }
+.role-tab:hover { color: var(--ink); background: #eee4cd; }
+.role-tab-toggle:focus-visible + .role-tab { outline: 3px solid var(--berry); outline-offset: -4px; }
+.giver-role-toggle:checked + .role-tab { position: relative; z-index: 2; border-color: var(--pine); border-bottom-color: var(--sheet); background: var(--sheet); color: var(--pine); }
+.receiver-role-toggle:checked + .role-tab { position: relative; z-index: 2; border-color: var(--berry); border-bottom-color: var(--sheet); background: var(--sheet); color: var(--berry); }
+.role-tab-panel { display: none; grid-column: 1 / -1; min-width: 0; margin-top: -2px; }
+.giver-role-toggle:checked ~ .giver-tab-panel, .receiver-role-toggle:checked ~ .receiver-tab-panel { display: block; }
+.only-role { grid-column: 1 / -1; max-width: 760px; }
 .role-zone { min-width: 0; padding: 28px; border: 2px solid var(--ink); background: color-mix(in srgb, var(--sheet) 75%, transparent); }
-.giver-zone { border-top: 8px solid var(--pine); }
-.receiver-zone { border-top: 8px solid var(--berry); }
-.role-heading { padding-bottom: 20px; margin-bottom: 24px; border-bottom: 1px dashed var(--rule); }
-.role-heading h2 { margin: 3px 0 7px; font-size: 34px; }
-.role-heading p { margin: 0; color: var(--muted); font-size: 14px; }
-.role-kicker { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
+.giver-zone { border-top: 6px solid var(--pine); }
+.receiver-zone { border-top: 6px solid var(--berry); }
 .recipient-card { display: grid; grid-template-columns: minmax(0, 1fr) 112px; gap: 18px; align-items: start; padding: 24px; margin-bottom: 24px; background: var(--sheet); border: 1.5px solid var(--pine); }
 .recipient-card > div { min-width: 0; }
 .recipient-card > img { display: block; width: 112px; height: auto; transform: rotate(3deg); }
@@ -178,7 +188,6 @@ h1:focus { outline: none; }
 .markdown-content th, .markdown-content td { border: 1px solid var(--rule); padding: 8px 10px; text-align: left; }
 .markdown-content img { display: block; max-width: 100%; height: auto; max-height: 600px; object-fit: contain; margin: 16px 0; border: 1px solid var(--rule); }
 .error { border: 2px solid var(--berry); border-left-width: 7px; padding: 16px 20px; background: #f5e0d8; color: #702731; margin-bottom: 26px; overflow-wrap: anywhere; font-size: 14px; }
-.back-link { margin-top: 35px; font-size: 14px; }
 .message-panel { max-width: 640px; margin: 30px auto; padding: 40px; }
 .message-panel h1 { font-size: 42px; color: var(--berry); }
 .skip-link { position: absolute; top: -100px; }
@@ -217,16 +226,19 @@ h1:focus { outline: none; }
     .mail-note { font-size: 18px; }
     .how-it-works { gap: 28px; grid-template-columns: .85fr 1.6fr; }
     .how-it-works > h2 { font-size: 32px; }
-    .dashboard, .game-workspace, .role-grid { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+    .dashboard, .game-workspace { grid-template-columns: minmax(0, 1fr); gap: 32px; }
     .create-panel { grid-row: 1; margin-top: 8px; transform: none; }
     .draw-panel { margin-top: 0; max-width: 100%; }
     .auth-layout { grid-template-columns: minmax(0, 1fr); max-width: 460px; gap: 18px; margin-top: 0; }
     .auth-aside { display: none; }
 }
 @media (max-width: 560px) {
-    .site-header nav { margin: 0 22px; padding: 18px 0; }
+    .site-header nav { margin: 0 22px; padding: 18px 0; flex-wrap: wrap; }
     .brand { font-size: 21px; gap: 8px; }
     .brand-mark { font-size: 34px; }
+    .header-actions { width: 100%; justify-content: flex-end; gap: 14px; margin-top: 2px; }
+    .games-nav-link { font-size: 13px; }
+    .logout-button { min-height: 38px; padding: 6px 13px; font-size: 13px; }
     main { padding: 35px 22px 60px; }
     h1 { font-size: 42px; }
     h2 { font-size: 28px; }
@@ -253,9 +265,9 @@ h1:focus { outline: none; }
     .game-card-icon { font-size: 32px; }
     .auth-panel { margin-top: 12px; }
     .auth-panel h1 { font-size: 36px; }
-    .role-grid { margin-top: 28px; }
+    .role-tabs { margin-top: 28px; }
+    .role-tab { padding: 12px 8px; font-size: 17px; }
     .role-zone { padding: 18px; }
-    .role-heading h2 { font-size: 30px; }
     .recipient-card { grid-template-columns: minmax(0, 1fr) 82px; padding: 19px; gap: 12px; }
     .recipient-card > img { width: 82px; }
     .role-message, .incoming-message { padding: 19px; }

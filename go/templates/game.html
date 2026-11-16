@@ -8,13 +8,17 @@
 </div>
 {{end}}
 
-{{if and .Game.Owner (eq .State "Published")}}<form class="close-form" method="post" action="/actions/{{.Game.ID}}/close"><input type="hidden" name="csrfToken" value="{{.CSRF}}"><button class="secondary" type="submit">Завершить игру</button></form>{{end}}
+{{if and .Game.Owner (eq .State "Published")}}<form class="close-form" method="post" action="/actions/{{.Game.ID}}/close"><input type="hidden" name="csrfToken" value="{{.CSRF}}"><button class="finish-button" type="submit">Завершить игру</button></form>{{end}}
 
 {{if or .HasRecipient .CanMessageRecipient .CanMessageSanta .HasMessageFromSanta}}
-<div class="role-grid">
+<div class="role-tabs">
+  {{if and (or .HasRecipient .CanMessageRecipient) (or .CanMessageSanta .HasMessageFromSanta)}}
+  <input class="role-tab-toggle giver-role-toggle" type="radio" name="role-mode" id="giver-role" checked><label class="role-tab" for="giver-role">Я дарю</label>
+  <input class="role-tab-toggle receiver-role-toggle" type="radio" name="role-mode" id="receiver-role"><label class="role-tab" for="receiver-role">Мне дарят</label>
+  {{end}}
   {{if or .HasRecipient .CanMessageRecipient}}
-  <section class="role-zone giver-zone" aria-labelledby="giver-zone-title">
-    <header class="role-heading"><span class="role-kicker">Моя роль</span><h2 id="giver-zone-title">Я дарю</h2><p>Подопечный и сообщение для него</p></header>
+  <div class="{{if and (or .HasRecipient .CanMessageRecipient) (or .CanMessageSanta .HasMessageFromSanta)}}role-tab-panel giver-tab-panel{{else}}only-role{{end}}">
+  <section class="role-zone giver-zone" aria-label="Я дарю">
     {{if .HasRecipient}}<div class="recipient-card"><div><p class="recipient-label">Ваш подопечный</p><p class="recipient-name">{{.Recipient.Name}}</p><p class="recipient-email">{{.Recipient.Email}}</p>{{if .Recipient.MessageHTML}}<div class="recipient-message"><h3>Пожелания</h3><div class="markdown-content">{{.Recipient.MessageHTML}}</div></div>{{end}}</div><img src="/static/images/holiday-parcel.svg" alt=""></div>{{end}}
     {{if .CanMessageRecipient}}
     <section class="role-message"><h3>Сообщение подопечному</h3>
@@ -31,11 +35,12 @@
     </section>
     {{end}}
   </section>
+  </div>
   {{end}}
 
   {{if or .CanMessageSanta .HasMessageFromSanta}}
-  <section class="role-zone receiver-zone" aria-labelledby="receiver-zone-title">
-    <header class="role-heading"><span class="role-kicker">Моя роль</span><h2 id="receiver-zone-title">Мне дарят</h2><p>Пожелания Санте и его ответ</p></header>
+  <div class="{{if and (or .HasRecipient .CanMessageRecipient) (or .CanMessageSanta .HasMessageFromSanta)}}role-tab-panel receiver-tab-panel{{else}}only-role{{end}}">
+  <section class="role-zone receiver-zone" aria-label="Мне дарят">
     {{if .HasMessageFromSanta}}<section class="incoming-message"><h3>От вашего Санты</h3><div class="markdown-content">{{.MessageFromSanta.HTML}}</div></section>{{end}}
     {{if .CanMessageSanta}}
     <section class="role-message"><h3>Пожелания Санте</h3>
@@ -52,9 +57,9 @@
     </section>
     {{end}}
   </section>
+  </div>
   {{end}}
 </div>
 {{else if eq .State "Draft"}}<p>Ваш результат появится после жеребьёвки.</p>{{else if eq .State "Closed"}}<p>Игра завершена, доступ к результату закрыт.</p>{{end}}
 
-<p class="back-link"><a href="/">К моим играм</a></p>
 {{end}}
