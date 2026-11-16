@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"github.com/google/uuid"
 	"santa/go/internal/app"
 	"santa/go/internal/engine"
@@ -32,8 +33,15 @@ func (a AppStore) Get(ctx context.Context, actor, id uuid.UUID) (app.GameView, e
 	return app.GameView{ID: g.ID, Title: g.Title, State: app.GameState(g.State), Version: g.Version, IsOwner: g.OwnerID == actor}, nil
 }
 func (a AppStore) Configuration(ctx context.Context, actor, id uuid.UUID) (app.ConfigurationView, error) {
-	if _, err := a.GetGame(ctx, actor, id); err != nil {
+	var owner uuid.UUID
+	if err := a.DB.QueryRowContext(ctx, `SELECT "OwnerId" FROM "Games" WHERE "Id"=$1`, id).Scan(&owner); err != nil {
+		if err == sql.ErrNoRows {
+			return app.ConfigurationView{}, ErrNotFound
+		}
 		return app.ConfigurationView{}, err
+	}
+	if owner != actor {
+		return app.ConfigurationView{}, ErrNotFound
 	}
 	rows, e := a.DB.QueryContext(ctx, `SELECT p."AccountId",u."Email",u."DisplayName" FROM "Participants" p JOIN "AspNetUsers" u ON u."Id"=p."AccountId" WHERE p."GameId"=$1 ORDER BY p."AccountId"`, id)
 	if e != nil {

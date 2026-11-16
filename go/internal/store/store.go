@@ -117,6 +117,9 @@ func (s *Store) Configure(ctx context.Context, actor, id uuid.UUID, version int6
 		ids[n] = x
 	}
 	rows.Close()
+	if e = rows.Err(); e != nil {
+		return e
+	}
 	if len(ids) != len(norm) {
 		return fmt.Errorf("unknown account")
 	}
@@ -196,6 +199,9 @@ func (s *Store) Capture(ctx context.Context, actor, id uuid.UUID, version int64,
 		ps = append(ps, x)
 	}
 	rows.Close()
+	if e = rows.Err(); e != nil {
+		return nil, e
+	}
 	rows, e = tx.QueryContext(ctx, `SELECT "GameId","FirstId","SecondId" FROM "Exclusions" WHERE "GameId"=$1`, id)
 	if e != nil {
 		return nil, e
@@ -210,6 +216,9 @@ func (s *Store) Capture(ctx context.Context, actor, id uuid.UUID, version int64,
 		ex = append(ex, x)
 	}
 	rows.Close()
+	if e = rows.Err(); e != nil {
+		return nil, e
+	}
 	if e = tx.Commit(); e != nil {
 		return nil, e
 	}
