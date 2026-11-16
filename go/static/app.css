@@ -30,6 +30,10 @@ a:hover { text-decoration-thickness: 2px; }
 .brand:hover { text-decoration: none; }
 .brand-mark { font: 42px/1 Georgia, serif; color: var(--berry); transform: rotate(-12deg); }
 .nav-link { padding: 10px 0 10px 15px; color: var(--ink); font-size: 15px; }
+.logout-form { display: block; margin: 0; }
+.logout-button { appearance: none; display: inline; min-height: 0; align-self: auto; padding: 10px 0 10px 15px; border: 0; background: transparent; color: var(--ink); box-shadow: none; font-size: 15px; font-weight: 400; }
+.logout-button:hover { background: transparent; color: var(--berry); box-shadow: none; transform: none; text-decoration: underline; text-underline-offset: 5px; }
+.logout-button:active { box-shadow: none; transform: none; }
 main { max-width: 1240px; margin: auto; padding: 55px 48px 85px; }
 h1, h2, h3 { font-family: Georgia, 'Times New Roman', serif; font-weight: 700; line-height: 1.12; overflow-wrap: anywhere; }
 h1 { font-size: clamp(38px, 5vw, 64px); letter-spacing: -.045em; margin: 0 0 22px; }
@@ -129,19 +133,36 @@ h1:focus { outline: none; }
 .draw-panel .button { width: 100%; background: var(--berry); }
 .draw-panel .button:disabled { background: #ded8c7; }
 .close-form { max-width: 660px; padding: 20px 0; border-bottom: 1px dashed var(--rule); }
-.recipient { display: flex; justify-content: space-between; align-items: center; gap: 28px; margin: 45px 0; max-width: 900px; border: 3px solid var(--pine); box-shadow: 7px 7px 0 var(--pine); }
-.recipient::before { content: ''; position: absolute; inset: 9px; border: 1px dashed var(--pine); pointer-events: none; }
-.recipient > div:first-child { min-width: 0; padding: 15px 10px; }
-.recipient h2 { font: 400 15px/1.5 'Golos Text', sans-serif; color: var(--muted); margin-bottom: 20px; letter-spacing: normal; }
+.role-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 34px; align-items: start; margin: 38px 0; }
+.role-zone { min-width: 0; padding: 28px; border: 2px solid var(--ink); background: color-mix(in srgb, var(--sheet) 75%, transparent); }
+.giver-zone { border-top: 8px solid var(--pine); }
+.receiver-zone { border-top: 8px solid var(--berry); }
+.role-heading { padding-bottom: 20px; margin-bottom: 24px; border-bottom: 1px dashed var(--rule); }
+.role-heading h2 { margin: 3px 0 7px; font-size: 34px; }
+.role-heading p { margin: 0; color: var(--muted); font-size: 14px; }
+.role-kicker { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
+.recipient-card { display: grid; grid-template-columns: minmax(0, 1fr) 112px; gap: 18px; align-items: start; padding: 24px; margin-bottom: 24px; background: var(--sheet); border: 1.5px solid var(--pine); }
+.recipient-card > div { min-width: 0; }
+.recipient-card > img { display: block; width: 112px; height: auto; transform: rotate(3deg); }
+.recipient-label { margin-bottom: 8px; color: var(--muted); font-size: 13px; }
 .recipient-name { font: 700 clamp(30px, 4vw, 48px)/1.15 Georgia, serif; letter-spacing: -.035em; color: var(--pine); overflow-wrap: anywhere; margin-bottom: 14px; }
 .recipient-email { overflow-wrap: anywhere; margin: 0; color: var(--muted); font-size: 14px; }
-.recipient .winter-art { width: 230px; transform: rotate(5deg); }
 .recipient-message { margin-top: 26px; padding-top: 22px; border-top: 1px dashed var(--rule); }
 .recipient-message h3 { font-size: 20px; color: var(--berry); }
-.santa-message { max-width: 900px; margin: 42px 0; border-color: var(--berry); box-shadow: 6px 6px 0 var(--berry); }
-.message-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 30px; max-width: 1100px; margin: 42px 0; align-items: start; }
-.message-editor { max-width: none; margin: 0; }
-.message-preview { margin-top: 30px; padding-top: 24px; border-top: 1px dashed var(--rule); }
+.role-message, .incoming-message { padding: 24px; background: var(--sheet); border: 1.5px solid var(--rule); }
+.role-message + .role-message, .incoming-message + .role-message { margin-top: 20px; }
+.role-message > h3, .incoming-message > h3 { margin-bottom: 18px; font-size: 22px; }
+.incoming-message { margin-bottom: 20px; border-color: var(--berry); }
+.incoming-message > h3 { color: var(--berry); }
+.message-switch { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.message-toggle { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.message-tab { margin: 0; padding: 9px 12px; border-bottom: 2px solid var(--rule); color: var(--muted); text-align: center; cursor: pointer; }
+.message-tab:hover { color: var(--ink); }
+.message-toggle:focus-visible + .message-tab { outline: 3px solid var(--berry); outline-offset: -3px; }
+.message-toggle:checked + .message-tab { border-color: var(--pine); background: #eee4cd; color: var(--ink); }
+.message-view { display: none; grid-column: 1 / -1; min-width: 0; padding-top: 20px; }
+.preview-toggle:checked ~ .preview-view, .editor-toggle:checked ~ .editor-view { display: block; }
+.preview-view { max-height: 480px; overflow: auto; }
 .markdown-content { overflow-wrap: anywhere; }
 .markdown-content > :last-child { margin-bottom: 0; }
 .markdown-content h1 { font-size: 30px; margin: 24px 0 12px; }
@@ -196,7 +217,7 @@ h1:focus { outline: none; }
     .mail-note { font-size: 18px; }
     .how-it-works { gap: 28px; grid-template-columns: .85fr 1.6fr; }
     .how-it-works > h2 { font-size: 32px; }
-    .dashboard, .game-workspace, .message-grid { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+    .dashboard, .game-workspace, .role-grid { grid-template-columns: minmax(0, 1fr); gap: 32px; }
     .create-panel { grid-row: 1; margin-top: 8px; transform: none; }
     .draw-panel { margin-top: 0; max-width: 100%; }
     .auth-layout { grid-template-columns: minmax(0, 1fr); max-width: 460px; gap: 18px; margin-top: 0; }
@@ -232,9 +253,14 @@ h1:focus { outline: none; }
     .game-card-icon { font-size: 32px; }
     .auth-panel { margin-top: 12px; }
     .auth-panel h1 { font-size: 36px; }
-    .recipient { flex-direction: column; align-items: stretch; gap: 0; }
-    .recipient .winter-art { align-self: flex-end; width: 170px; }
-    .recipient > div:first-child { padding: 10px 0; }
+    .role-grid { margin-top: 28px; }
+    .role-zone { padding: 18px; }
+    .role-heading h2 { font-size: 30px; }
+    .recipient-card { grid-template-columns: minmax(0, 1fr) 82px; padding: 19px; gap: 12px; }
+    .recipient-card > img { width: 82px; }
+    .role-message, .incoming-message { padding: 19px; }
+    .message-tab { padding-inline: 8px; font-size: 13px; }
+    .preview-view { max-height: 360px; }
     .message-panel { padding: 26px 22px; }
     .message-panel h1 { font-size: 36px; }
 }

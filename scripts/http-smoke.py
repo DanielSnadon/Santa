@@ -85,7 +85,8 @@ for i,c in enumerate(clients[:3]):
     assert 'javascript:' not in outgoing['html'].lower()
     from_santa[value['email']]=marker
     status,page=c.request('/games/'+game)
-    assert status==200 and value['email'] in page and 'Для моего Санты' in page and 'Для подопечного' in page
+    assert status==200 and value['email'] in page and 'Я дарю' in page and 'Мне дарят' in page
+    assert 'recipient-preview' in page and 'santa-preview' in page and 'Редактировать' in page
     # Published HTML contains the one recipient; no full configuration or result.
     for other in emails[:3]:
         if other!=value['email']:assert other not in page
