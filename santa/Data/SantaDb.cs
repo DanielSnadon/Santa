@@ -21,6 +21,7 @@ public sealed class SantaDb(DbContextOptions<SantaDb> options) : IdentityDbConte
         });
         b.Entity<Participant>(e => {
             e.HasKey(x => new { x.GameId, x.AccountId });
+            e.Property(x => x.SantaMessage).HasMaxLength(5000);
             e.HasOne<Game>().WithMany().HasForeignKey(x => x.GameId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Account).WithMany().HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Restrict);
         });

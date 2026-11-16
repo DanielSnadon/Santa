@@ -45,6 +45,16 @@ await Error(() => service.Configure(owner,game,new(1,emails,[])),"configuration_
 await Error(() => service.Configure(owner,game,new(2,[emails[0],emails[0]],[])),"duplicate_participants");
 await Error(() => service.Configure(owner,game,new(2,["missing@example.test"],[])),"unknown_account");
 await Error(() => service.MyAssignment(owner,game),"assignment_unavailable");
+const string markdown = "## Идеи\n\n- **Книга**\n- [Сайт](https://example.test)\n\n<script>alert(1)</script>\n\n[опасная ссылка](javascript:alert(1))";
+await service.SetMessage(ids[1],game,markdown);
+var ownMessage = await service.MyMessage(ids[1],game);
+Check(ownMessage.Markdown == markdown,"Message markdown round trip");
+Check(ownMessage.Html.Contains("<h2") && ownMessage.Html.Contains("<strong>Книга</strong>"),"Markdown formatting");
+Check(!ownMessage.Html.Contains("<script",StringComparison.OrdinalIgnoreCase) &&
+    !ownMessage.Html.Contains("javascript:",StringComparison.OrdinalIgnoreCase),"Markdown XSS sanitizing");
+await Error(() => service.SetMessage(Guid.NewGuid(),game,"not allowed"),"not_participant");
+await Error(() => service.MyMessage(Guid.NewGuid(),game),"not_participant");
+await Error(() => service.SetMessage(ids[1],game,new string('x',5001)),"invalid_message");
 var s1 = (await service.Capture(owner,game,request))!;
 var request2 = new PublishInput(2,Guid.NewGuid());
 var s2 = (await service.Capture(owner,game,request2))!;
@@ -68,9 +78,15 @@ for (int i = 0; i < ids.Length; ++i) {
     var recipient = await service.MyAssignment(ids[i],game);
     Check(recipient.Email != emails[i],"Only own recipient");
 }
+await using (var db = new SantaDb(options)) {
+    var giver = await db.Assignments.Where(a => a.GameId == game && a.ReceiverId == ids[1]).Select(a => a.GiverId).SingleAsync();
+    var recipient = await service.MyAssignment(giver,game);
+    Check(recipient.MessageHtml.Contains("<strong>Книга</strong>"),"Giver sees receiver message");
+}
 await Error(() => service.MyAssignment(Guid.NewGuid(),game),"assignment_unavailable");
 await service.Close(owner,game);
 await Error(() => service.MyAssignment(owner,game),"assignment_unavailable");
+await Error(() => service.SetMessage(ids[1],game,"too late"),"message_closed");
 // Snapshot becomes stale during the calculation.
 var (stale,staleRequest) = await Game();
 var snapshot = (await service.Capture(owner,stale,staleRequest))!;
@@ -105,7 +121,7 @@ await using (var db = new SantaDb(options)) {
     }
 }
 await service.Publish(owner,rollback,rollbackRequest);
-Console.WriteLine("PASS: real P/Invoke, UUID mapping, exclusions, PostgreSQL migration, concurrent publication, idempotency, stale snapshot, rollback, rights and lifecycle");
+Console.WriteLine("PASS: P/Invoke, assignments, messages, safe Markdown, PostgreSQL migration, concurrency, rollback, rights and lifecycle");
 sealed class Factory(DbContextOptions<SantaDb> options) : IDbContextFactory<SantaDb>
 {
     public SantaDb CreateDbContext() => new(options);

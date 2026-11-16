@@ -13,6 +13,7 @@ public sealed class Participant
 {
     public Guid GameId { get; set; }
     public Guid AccountId { get; set; }
+    public string SantaMessage { get; set; } = "";
     public Account Account { get; set; } = null!;
 }
 public sealed class ExcludedPair

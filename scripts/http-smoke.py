@@ -48,6 +48,17 @@ status,data=owner.request(path+'/configuration',{'version':1,'emails':emails[:3]
 assert outsider.request(path)[0]==404
 assert a.request(path+'/configuration')[0]==403
 assert a.request(path+'/publish',{'version':2,'requestKey':str(uuid.uuid4())})[0]==403
+messages={}
+for i,c in enumerate(clients[:3]):
+    marker=f'wish-{suffix}-{i}'
+    markdown=f'## Мои пожелания\n\n- **{marker}**\n\n<script>alert(1)</script>\n\n[опасно](javascript:alert(1))'
+    messages[emails[i]]=marker
+    status,data=c.request(path+'/my-message',{'message':markdown},method='PUT');assert status==204,(status,data)
+    status,data=c.request(path+'/my-message');assert status==200,(status,data)
+    value=json.loads(data);assert value['markdown']==markdown and '<strong>'+marker+'</strong>' in value['html']
+    assert '<script' not in value['html'].lower() and 'javascript:' not in value['html'].lower()
+assert outsider.request(path+'/my-message',{'message':'no access'},method='PUT')[0]==403
+assert a.request(path+'/my-message',{'message':'x'*5001},method='PUT')[0]==400
 key=str(uuid.uuid4())
 status,data=owner.request(path+'/publish',{'version':2,'requestKey':key});assert status==200,(status,data)
 assert owner.request(path+'/publish',{'version':2,'requestKey':key})[0]==200
@@ -56,10 +67,12 @@ assert owner.request(path+'/configuration',{'version':2,'emails':emails,'exclusi
 recipients=[]
 for i,c in enumerate(clients[:3]):
     status,data=c.request(path+'/my-assignment');assert status==200,(status,data)
-    value=json.loads(data);assert set(value)=={'name','email'} and value['email']!=emails[i]
+    value=json.loads(data);assert set(value)=={'name','email','messageHtml'} and value['email']!=emails[i]
+    assert '<strong>'+messages[value['email']]+'</strong>' in value['messageHtml']
+    assert '<script' not in value['messageHtml'].lower() and 'javascript:' not in value['messageHtml'].lower()
     recipients.append(value['email'])
     status,page=c.request('/games/'+game)
-    assert status==200 and value['email'] in page
+    assert status==200 and value['email'] in page and 'Сообщение вашему Санте' in page
     # Published HTML contains the one recipient; no full configuration or result.
     for other in emails[:3]:
         if other!=value['email']:assert other not in page
@@ -70,6 +83,7 @@ status,data=a.request(path+'/my-assignment?giverId='+uuid.uuid4().hex)
 assert status==200 and json.loads(data)['email']==recipients[1]
 assert owner.request(path+'/close',{})[0]==204
 assert a.request(path+'/my-assignment')[0]==404
+assert a.request(path+'/my-message',{'message':'too late'},method='PUT')[0]==409
 # Login/logout and form CSRF.
 status,page=owner.request('/')
 token=re.search(r'name="__RequestVerificationToken" value="([^"]+)"',page)[1]
@@ -78,4 +92,4 @@ assert owner.request('/api/games/')[0]==401
 status,page=owner.request('/login');token=re.search(r'name="__RequestVerificationToken" value="([^"]+)"',page)[1]
 status,page=owner.request('/account/login',{'email':emails[0],'password':'Test-Gift-Password42!','__RequestVerificationToken':token},form=True)
 assert status==200 and 'Новая игра' in page
-print('PASS: registration, cookie login/logout, CSRF, game flow, cross-account permissions, own result only, retries, close')
+print('PASS: registration, CSRF, game flow, participant messages, safe Markdown, permissions, retries and close')

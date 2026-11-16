@@ -44,10 +44,32 @@ else if (game != null)
     }
     @if (recipient != null)
     {
-        <section class="recipient panel"><div><h2>Вы дарите подарок</h2><p class="recipient-name">@recipient.Name</p><p class="recipient-email">@recipient.Email</p></div><WinterIllustration Variant="secret" /></section>
+        <section class="recipient panel"><div><h2>Вы дарите подарок</h2><p class="recipient-name">@recipient.Name</p><p class="recipient-email">@recipient.Email</p>
+            @if (!string.IsNullOrWhiteSpace(recipient.MessageHtml))
+            {
+                <div class="recipient-message"><h3>Сообщение для Санты</h3><div class="markdown-content">@((MarkupString)recipient.MessageHtml)</div></div>
+            }
+        </div><WinterIllustration Variant="secret" /></section>
     }
     else if (game.State == "Draft") { <p>Ваш результат появится после жеребьёвки.</p> }
     else if (!game.IsOwner && game.State == "Closed") { <p>Игра завершена, доступ к результату закрыт.</p> }
+    @if (message != null && game.State != "Closed")
+    {
+        <section class="panel message-editor"><h2>Сообщение вашему Санте</h2>
+            <p>Напишите пожелания, идеи для подарка или важные детали. Поддерживается Markdown: <code>**жирный**</code>, списки, ссылки и заголовки.</p>
+            <form method="post" action="@($"/actions/{Id}/message")" data-enhance="false">
+                <AntiforgeryToken />
+                <label for="santa-message">Сообщение в Markdown</label>
+                <textarea id="santa-message" name="message" rows="7" maxlength="5000" aria-describedby="message-help">@message.Markdown</textarea>
+                <p id="message-help">До 5000 символов. Сообщение увидит только участник, который дарит вам подарок.</p>
+                <ActionButton type="submit">Сохранить сообщение</ActionButton>
+            </form>
+            @if (!string.IsNullOrWhiteSpace(message.Html))
+            {
+                <div class="message-preview"><h3>Предпросмотр</h3><div class="markdown-content">@((MarkupString)message.Html)</div></div>
+            }
+        </section>
+    }
 }
 <p class="back-link"><a href="/">К моим играм</a></p>
 @code {
@@ -55,6 +77,7 @@ else if (game != null)
     private GameView? game;
     private ConfigurationView? configuration;
     private RecipientView? recipient;
+    private ParticipantMessageView? message;
     private string? failure;
     private string emails = "", exclusions = "";
     private readonly Guid requestKey = Guid.NewGuid();
@@ -63,6 +86,10 @@ else if (game != null)
         try {
             var actor = WebEndpoints.Actor(Context.HttpContext!.User);
             game = await Games.Get(actor,Id);
+            if (game.State != "Closed") {
+                try { message = await Games.MyMessage(actor,Id); }
+                catch (GameException e) when (e.Status == 404) { }
+            }
             if (game.IsOwner && game.State == "Draft") {
                 configuration = await Games.Configuration(actor,Id);
                 emails = string.Join("\n",configuration.Participants.Select(p => p.Email));
