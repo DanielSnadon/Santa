@@ -4,3 +4,6 @@
 .env
 artifacts/
 *.user
+AGENTS.md
+docs/*
+memory/*
