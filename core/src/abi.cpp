@@ -15,7 +15,8 @@ int32 SANTA_CALL santa_draw(uint32 n, const SantaPair* pairs,
     return SANTA_INVALID_INPUT;
   try {
     santa::OsRandom random;
-    const auto result = santa::draw(n, {pairs, static_cast<size_t>(pair_count)},
+    static const SantaPair empty_pair{};
+    const auto result = santa::draw(n, {pairs ? pairs : &empty_pair, static_cast<size_t>(pair_count)},
                                     budget, random);
     if (result.status == santa::Status::kSuccess)
       for (uint32 i = 0; i < n; ++i) output[i] = result.receivers[i];

@@ -8,7 +8,7 @@ int main(void) {
   if (sizeof(SantaPair) != 8 || sizeof(SantaBudget) != 24 ||
       santa_abi_version() != 1)
     return 1;
-  assert(sizeof(uint32_t) == 32);
+  assert(sizeof(uint32_t) == 4);
   if (santa_draw(2, 0, 0, budget, output, 2) != SANTA_SUCCESS)
     return 2;
   return output[0] != 1 || output[1] != 0;

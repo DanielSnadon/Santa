@@ -73,6 +73,9 @@ Result draw(uint32 n, yasl::Span<const Pair> exclusions, Budget budget,
             IRandom& random) {
   if (n < 2 || n == yasl::max_value<uint32>())
     return {Status::kInvalidInput, {}, {}};
+  for (const auto pair : exclusions)
+    if (pair.giver >= n || pair.receiver >= n)
+      return {Status::kInvalidInput, {}, {}};
   // Check before any allocation. Conservative logical working-set estimate;
   // allocator metadata/page rounding is outside this budget.
   const uint64 cells = uint64{n} * n;
@@ -85,9 +88,6 @@ Result draw(uint32 n, yasl::Span<const Pair> exclusions, Budget budget,
   try {
     work.use(cells);
     work.use(exclusions.size());
-    for (const auto pair : exclusions)
-      if (pair.giver >= n || pair.receiver >= n)
-        return {Status::kInvalidInput, {}, {}};
     yasl::Vector<uint8> forbidden(static_cast<size_t>(cells), uint8{0});
     for (uint32 i = 0; i < n; ++i) forbidden[size_t{i} * n + i] = 1;
     for (const auto pair : exclusions)
