@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -44,6 +46,10 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]string{"status": "ok"})
 }
 func (s *Server) ready(w http.ResponseWriter, r *http.Request) {
+	if s.Ready != nil && !s.Ready(r.Context()) {
+		writeJSON(w, 503, map[string]string{"status": "not_ready"})
+		return
+	}
 	writeJSON(w, 200, map[string]string{"status": "ready"})
 }
 func (s *Server) session(w http.ResponseWriter, r *http.Request) {
@@ -65,6 +71,10 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 	}
 	if !s.allow(r) {
 		writeError(w, 429, "rate_limited")
+		return
+	}
+	if !sameOrigin(r) {
+		writeError(w, 403, "csrf")
 		return
 	}
 	email := normalizeEmail(r.FormValue("email"))
@@ -94,6 +104,10 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	}
 	if !s.allow(r) {
 		writeError(w, 429, "rate_limited")
+		return
+	}
+	if !sameOrigin(r) {
+		writeError(w, 403, "csrf")
 		return
 	}
 	u, err := s.Auth.Login(r.Context(), normalizeEmail(r.FormValue("email")), r.FormValue("password"))
@@ -133,6 +147,13 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 	} else {
 		http.Redirect(w, r, "/", 303)
 	}
+}
+func (s *Server) publish(ctx context.Context, u *User, id string, in PublishRequest) error {
+	if s.DrawGate != nil {
+		s.DrawGate <- struct{}{}
+		defer func() { <-s.DrawGate }()
+	}
+	return s.Games.Publish(ctx, u, id, in)
 }
 func (s *Server) games(w http.ResponseWriter, r *http.Request) {
 	u, ok := s.user(w, r)
@@ -224,7 +245,7 @@ func (s *Server) games(w http.ResponseWriter, r *http.Request) {
 			}
 			var in PublishRequest
 			_ = json.NewDecoder(r.Body).Decode(&in)
-			if err := s.Games.Publish(r.Context(), u, id, in); err != nil {
+			if err := s.publish(r.Context(), u, id, in); err != nil {
 				writeErr(w, err)
 				return
 			}
@@ -289,6 +310,10 @@ func (s *Server) actions(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 404, "not_found")
 		return
 	}
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
 	if err := s.requireCSRF(r); err != nil {
 		redirectErr(w, r, "csrf")
 		return
@@ -299,7 +324,7 @@ func (s *Server) actions(w http.ResponseWriter, r *http.Request) {
 		var in PublishRequest
 		in.RequestKey = r.FormValue("requestKey")
 		fmt.Sscan(r.FormValue("version"), &in.Version)
-		if e := s.Games.Publish(r.Context(), u, id, in); e != nil {
+		if e := s.publish(r.Context(), u, id, in); e != nil {
 			redirectErr(w, r, e.Error())
 			return
 		}
@@ -329,7 +354,7 @@ func (s *Server) actions(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/games/"+id, 303)
 }
 func (s *Server) page(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" && r.URL.Path != "/login" && r.URL.Path != "/register" && !strings.HasPrefix(r.URL.Path, "/games/") {
+	if r.URL.Path != "/" && r.URL.Path != "/login" && r.URL.Path != "/register" && r.URL.Path != "/not-found" && r.URL.Path != "/Error" && !strings.HasPrefix(r.URL.Path, "/games/") {
 		http.NotFound(w, r)
 		return
 	}
@@ -338,12 +363,26 @@ func (s *Server) page(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := "home"
+	data := map[string]any{"Path": r.URL.Path}
 	if r.URL.Path == "/login" {
 		name = "login"
 	} else if r.URL.Path == "/register" {
 		name = "register"
+	} else if r.URL.Path == "/not-found" || r.URL.Path == "/Error" {
+		name = "not-found"
 	} else if strings.HasPrefix(r.URL.Path, "/games/") {
 		name = "game"
+		u, ok := s.user(w, r)
+		if !ok {
+			return
+		}
+		id := strings.TrimPrefix(r.URL.Path, "/games/")
+		g, err := s.Games.Get(r.Context(), u, id)
+		if err != nil {
+			writeErr(w, err)
+			return
+		}
+		data["Title"], data["State"] = g.Title, g.State
 	}
 	csrf := ""
 	if s.Auth != nil {
@@ -351,8 +390,8 @@ func (s *Server) page(w http.ResponseWriter, r *http.Request) {
 			csrf = session.CSRF
 		}
 	}
-	data := map[string]any{"Path": r.URL.Path, "CSRF": csrf}
-	_ = s.Templates.T.ExecuteTemplate(w, name, data)
+	data["CSRF"], data["Page"] = csrf, name
+	_ = s.Templates.T.ExecuteTemplate(w, "layout", data)
 }
 func (s *Server) user(w http.ResponseWriter, r *http.Request) (*User, bool) {
 	if s.Auth == nil {
@@ -376,11 +415,23 @@ func (s *Server) requireCSRF(r *http.Request) error {
 	}
 	return s.Auth.ValidateCSRF(r)
 }
+func sameOrigin(r *http.Request) bool {
+	o := r.Header.Get("Origin")
+	if o == "" {
+		return true
+	}
+	u, err := url.Parse(o)
+	return err == nil && u.Host == r.Host
+}
 func (s *Server) allow(r *http.Request) bool {
 	if s.Rate == nil {
 		return true
 	}
-	return s.Rate.Allow(r.RemoteAddr)
+	key := r.RemoteAddr
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		key = host
+	}
+	return s.Rate.Allow(key)
 }
 func wantsJSON(r *http.Request) bool {
 	return strings.Contains(r.Header.Get("Accept"), "application/json") || strings.HasPrefix(r.URL.Path, "/api/")
@@ -395,7 +446,11 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 }
 func writeErr(w http.ResponseWriter, e error) {
 	status := statusFor(e)
-	writeError(w, status, e.Error())
+	msg := "internal_error"
+	if status != 500 {
+		msg = e.Error()
+	}
+	writeError(w, status, msg)
 }
 func statusFor(e error) int {
 	if errors.Is(e, ErrUnauthorized) {

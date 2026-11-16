@@ -46,13 +46,7 @@ func (s UserStore) CheckPassword(ctx context.Context, u User, password string) (
 		_, e := s.DB.ExecContext(ctx, `UPDATE "AspNetUsers" SET "AccessFailedCount"=0,"LockoutEnd"=NULL WHERE "Id"=$1`, u.ID)
 		return e == nil, e
 	}
-	next := u.AccessFailedCount + 1
-	if next >= 5 {
-		t := time.Now().UTC().Add(15 * time.Minute)
-		_, e := s.DB.ExecContext(ctx, `UPDATE "AspNetUsers" SET "AccessFailedCount"=$2,"LockoutEnd"=$3 WHERE "Id"=$1`, u.ID, next, t)
-		return false, e
-	}
-	_, e := s.DB.ExecContext(ctx, `UPDATE "AspNetUsers" SET "AccessFailedCount"=$2 WHERE "Id"=$1`, u.ID, next)
+	_, e := s.DB.ExecContext(ctx, `UPDATE "AspNetUsers" SET "AccessFailedCount"="AccessFailedCount"+1, "LockoutEnd"=CASE WHEN "LockoutEnabled" AND "AccessFailedCount"+1 >= 5 THEN NOW() + interval '15 minutes' ELSE "LockoutEnd" END WHERE "Id"=$1`, u.ID)
 	return false, e
 }
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -34,6 +35,7 @@ type Game struct {
 }
 type Configuration struct {
 	Version      int64         `json:"version"`
+	Emails       []string      `json:"emails"`
 	Participants []Participant `json:"participants"`
 	Exclusions   []Pair        `json:"exclusions"`
 }
@@ -69,23 +71,16 @@ type Server struct {
 	Rate      *RateLimiter
 	Static    http.Handler
 	Templates *Templates
+	DrawGate  chan struct{}
+	Ready     func(context.Context) bool
 }
 type RateLimiter struct {
-	mu     syncMutex
+	mu     sync.Mutex
 	hits   map[string][]time.Time
 	limit  int
 	window time.Duration
 }
-type syncMutex struct{ ch chan struct{} }
 
-func (m *syncMutex) Lock() {
-	if m.ch == nil {
-		m.ch = make(chan struct{}, 1)
-		m.ch <- struct{}{}
-	}
-	<-m.ch
-}
-func (m *syncMutex) Unlock() { m.ch <- struct{}{} }
 func NewRateLimiter(limit int, window time.Duration) *RateLimiter {
 	return &RateLimiter{hits: map[string][]time.Time{}, limit: limit, window: window}
 }

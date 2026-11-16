@@ -24,6 +24,9 @@ func appError(err error) error {
 	if strings.Contains(m, "invalid") || strings.Contains(m, "unknown account") {
 		return ErrValidation
 	}
+	if strings.Contains(m, "unsatisfiable") || strings.Contains(m, "search_limit") || strings.Contains(m, "resource_limit") {
+		return ErrValidation
+	}
 	return err
 }
 func (a AppAdapter) actor(u *User) (uuid.UUID, error) {
@@ -108,6 +111,9 @@ func (a AppAdapter) Configure(ctx context.Context, u *User, id string, c Configu
 	in := app.ConfigurationInput{Version: ver}
 	for _, p := range c.Participants {
 		in.Emails = append(in.Emails, p.Email)
+	}
+	if len(in.Emails) == 0 {
+		in.Emails = append(in.Emails, c.Emails...)
 	}
 	for _, p := range c.Exclusions {
 		in.Exclusions = append(in.Exclusions, app.Exclusion{First: p.First, Second: p.Second})
