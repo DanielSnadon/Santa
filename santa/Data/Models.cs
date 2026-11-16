@@ -34,4 +34,5 @@ public sealed class Assignment
     public Guid GameId { get; set; }
     public Guid GiverId { get; set; }
     public Guid ReceiverId { get; set; }
+    public string RecipientMessage { get; set; } = "";
 }

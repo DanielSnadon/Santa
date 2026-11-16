@@ -37,6 +37,7 @@ public sealed class SantaDb(DbContextOptions<SantaDb> options) : IdentityDbConte
         });
         b.Entity<Assignment>(e => {
             e.HasKey(x => new { x.GameId, x.GiverId });
+            e.Property(x => x.RecipientMessage).HasMaxLength(5000);
             e.HasIndex(x => new { x.GameId, x.ReceiverId }).IsUnique();
             e.HasOne<Draw>().WithMany().HasForeignKey(x => x.GameId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne<Participant>().WithMany().HasForeignKey(x => new { x.GameId, x.GiverId }).OnDelete(DeleteBehavior.Restrict);

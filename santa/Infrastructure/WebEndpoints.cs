@@ -63,6 +63,11 @@ public static class WebEndpoints
         api.MapPut("/{id:guid}/my-message", async (Guid id, MessageInput request, ClaimsPrincipal u, GameService games) => {
             await games.SetMessage(Actor(u),id,request.Message ?? ""); return Results.NoContent();
         });
+        api.MapGet("/{id:guid}/my-recipient-message", (Guid id, ClaimsPrincipal u, GameService games) => games.MyRecipientMessage(Actor(u),id));
+        api.MapPut("/{id:guid}/my-recipient-message", async (Guid id, MessageInput request, ClaimsPrincipal u, GameService games) => {
+            await games.SetRecipientMessage(Actor(u),id,request.Message ?? ""); return Results.NoContent();
+        });
+        api.MapGet("/{id:guid}/message-from-santa", (Guid id, ClaimsPrincipal u, GameService games) => games.MessageFromSanta(Actor(u),id));
         var forms = app.MapGroup("/actions").RequireAuthorization();
         forms.MapPost("/create", async ([FromForm] string title, ClaimsPrincipal u, GameService games) =>
             Results.LocalRedirect($"/games/{await games.Create(Actor(u),title)}"));
@@ -84,6 +89,10 @@ public static class WebEndpoints
         forms.MapPost("/{id:guid}/message", async (Guid id, [FromForm] string? message,
             ClaimsPrincipal u, GameService games) => {
             await games.SetMessage(Actor(u),id,message ?? ""); return Results.LocalRedirect($"/games/{id}");
+        });
+        forms.MapPost("/{id:guid}/recipient-message", async (Guid id, [FromForm] string? message,
+            ClaimsPrincipal u, GameService games) => {
+            await games.SetRecipientMessage(Actor(u),id,message ?? ""); return Results.LocalRedirect($"/games/{id}");
         });
     }
     public record CreateGame(string Title);

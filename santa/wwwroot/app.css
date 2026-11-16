@@ -138,10 +138,12 @@ h1:focus { outline: none; }
 .recipient .winter-art { width: 230px; transform: rotate(5deg); }
 .recipient-message { margin-top: 26px; padding-top: 22px; border-top: 1px dashed var(--rule); }
 .recipient-message h3 { font-size: 20px; color: var(--berry); }
-.message-editor { max-width: 900px; margin: 42px 0; }
-.message-editor > p { color: var(--muted); }
+.santa-message { max-width: 900px; margin: 42px 0; border-color: var(--berry); box-shadow: 6px 6px 0 var(--berry); }
+.message-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 30px; max-width: 1100px; margin: 42px 0; align-items: start; }
+.message-editor { max-width: none; margin: 0; }
 .message-preview { margin-top: 30px; padding-top: 24px; border-top: 1px dashed var(--rule); }
 .markdown-content { overflow-wrap: anywhere; }
+.markdown-content img { display: block; max-width: 100%; height: auto; max-height: 600px; object-fit: contain; margin: 16px 0; border: 1px solid var(--rule); }
 .markdown-content > :last-child { margin-bottom: 0; }
 .markdown-content h1 { font-size: 30px; margin: 24px 0 12px; }
 .markdown-content h2 { font-size: 26px; margin: 22px 0 10px; }
@@ -194,7 +196,7 @@ h1:focus { outline: none; }
     .mail-note { font-size: 18px; }
     .how-it-works { gap: 28px; grid-template-columns: .85fr 1.6fr; }
     .how-it-works > h2 { font-size: 32px; }
-    .dashboard, .game-workspace { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+    .dashboard, .game-workspace, .message-grid { grid-template-columns: minmax(0, 1fr); gap: 32px; }
     .create-panel { grid-row: 1; margin-top: 8px; transform: none; }
     .draw-panel { margin-top: 0; max-width: 100%; }
     .auth-layout { grid-template-columns: minmax(0, 1fr); max-width: 460px; gap: 18px; margin-top: 0; }
