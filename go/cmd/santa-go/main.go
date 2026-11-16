@@ -50,6 +50,13 @@ func main() {
 		return
 	}
 	sqlStore := &store.Store{DB: db}
+	go func() {
+		t := time.NewTicker(time.Hour)
+		defer t.Stop()
+		for range t.C {
+			_ = sqlStore.CleanupSessions(context.Background())
+		}
+	}()
 	appStore := store.AppStore{Store: sqlStore}
 	service := app.Service{Store: appStore, Engine: engine.Native{Budget: engine.DefaultBudget()}}
 	users := auth.UserStore{DB: db}
@@ -62,9 +69,10 @@ func main() {
 	if _, err := os.Stat(staticDir); err != nil {
 		staticDir = "static"
 	}
-	srv := &httpapi.Server{Static: http.FileServer(http.Dir(staticDir)), Auth: httpapi.SQLAuth{Users: users, Sessions: sessions}, Games: httpapi.AppAdapter{Service: service}, Rate: httpapi.NewRateLimiter(20, time.Minute), Templates: templates}
+	srv := &httpapi.Server{Static: http.FileServer(http.Dir(staticDir)), Auth: httpapi.SQLAuth{Users: users, Sessions: sessions}, Games: httpapi.AppAdapter{Service: service}, Rate: httpapi.NewRateLimiter(20, time.Minute), Templates: templates, DrawGate: make(chan struct{}, 2), Ready: func(c context.Context) bool { return db.PingContext(c) == nil }}
 	log.Printf("santa-go listening on %s", cfg.ListenAddr)
-	if err := http.ListenAndServe(cfg.ListenAddr, srv.Handler()); err != nil {
+	h := &http.Server{Addr: cfg.ListenAddr, Handler: srv.Handler(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second}
+	if err := h.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
 }

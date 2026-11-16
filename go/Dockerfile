@@ -14,6 +14,7 @@ COPY --from=build /out/santa-go /usr/local/bin/santa-go
 COPY --from=build /src/build/libsanta_native.so /usr/local/lib/libsanta_native.so
 COPY go/templates /app/templates
 COPY go/static /app/static
+COPY go/migrations /app/migrations
 ENV LD_LIBRARY_PATH=/usr/local/lib
 WORKDIR /app
 EXPOSE 5083
